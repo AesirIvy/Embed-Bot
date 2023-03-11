@@ -25,7 +25,7 @@ class Draft(commands.Cog):
         )
     async def delete(self, ctx, code):
         self.data.delete_file(ctx.author.id, code)
-        await ctx.respond(f"draft {code} deleted", ephemeral=True,
+        await ctx.respond(f"draft *{code}* deleted", ephemeral=True,
                           delete_after=5)
 
     @draft.command(description="Return a list of all your draft.")
@@ -33,7 +33,7 @@ class Draft(commands.Cog):
         ts = self.data.history(ctx.author.id)
         folios = []
         if not ts:
-            await ctx.respond('no saved draft', ephemeral=True, delete_after=5)
+            await ctx.respond("no saved draft", ephemeral=True, delete_after=5)
             return
         for i in ts:
             with open(f"data/{ctx.author.id}/{i[0]}.json") as data:
@@ -44,7 +44,7 @@ class Draft(commands.Cog):
                         embeds=[discord.Embed.from_dict(dct)]
                         )
                     )
-        paginator = pages.Paginator(pages=folios, timeout=5)
+        paginator = pages.Paginator(pages=folios)
         await paginator.respond(ctx.interaction)
         await paginator.wait()
         await paginator.update(show_disabled=False, show_indicator=False)
@@ -81,9 +81,9 @@ class Draft(commands.Cog):
                 with open(f'data/{ctx.author.id}/{int(code, 16)}.json') as data:
                     dct = json.loads(data.read())
             await channel.send(embed=discord.Embed.from_dict(dct))
-            await ctx.respond('Draft sended!', ephemeral=True, delete_after=5)
+            await ctx.respond("Draft sended!", ephemeral=True, delete_after=5)
             return
-        await ctx.respond('no saved draft', ephemeral=True, delete_after=5)
+        await ctx.respond("no saved draft", ephemeral=True, delete_after=5)
 
 
 class DraftModal(discord.ui.Modal):
@@ -163,6 +163,16 @@ class DraftAddView(discord.ui.View):
         self.identity = identity
         self.embed = embed
 
+    @discord.ui.button(label="Add Field", style=discord.ButtonStyle.grey)
+    async def add_field_callback(self, button, interaction):
+        res = interaction.response
+        await res.send_modal(DraftAddFieldModal(self.identity, self.embed))
+
+    @discord.ui.button(label="Remove Field", style=discord.ButtonStyle.grey)
+    async def remove_field_callback(self, button, interaction):
+        res = interaction.response
+        await res.send_modal(DraftRemoveFieldModal(self.identity, self.embed))
+
     @discord.ui.button(label='Footer', style=discord.ButtonStyle.grey)
     async def footer_callback(self, button, interaction):
         res = interaction.response
@@ -171,8 +181,49 @@ class DraftAddView(discord.ui.View):
     @discord.ui.button(label='Back', style=discord.ButtonStyle.grey)
     async def back_callback(self, button, interaction):
         res = interaction.response
+        await res.edit_message(view=DraftView(self.identity, self.embed))
+
+
+class DraftAddFieldModal(discord.ui.Modal):
+
+    def __init__(self, identity, embed):
+        super().__init__(title='Draft')
+        self.identity = identity
+        self.embed = embed
+        self.add_item(InTxt(label="Field Title", max_length=256,
+                            required=False))
+        self.add_item(InTxt(style=discord.InputTextStyle.long,
+                            label="Field Description", max_length=1024,
+                            required=False))
+
+    async def callback(self, interaction):
+        self.embed.add_field(name=self.children[0].value,
+                             value=self.children[1].value, inline=False)
+        res = interaction.response
         await res.edit_message(embed=self.embed,
-                               view=DraftView(self.identity, self.embed))
+                               view=DraftAddView(self.identity, self.embed))
+
+
+class DraftRemoveFieldModal(discord.ui.Modal):
+
+    def __init__(self, identity, embed):
+        super().__init__(title='Draft')
+        self.identity = identity
+        self.embed = embed
+        self.add_item(InTxt(label="Field Position",
+                            placeholder="Between 1 and 25", required=True))
+
+    async def callback(self, interaction):
+        res = interaction.response
+        try:
+            pos = int(self.children[0].value) + 1
+        except ValueError:
+            await res.send_message("invalid field position", ephemeral=True,
+                                   delete_after=5)
+            return
+        self.embed.remove_field(pos)
+        await res.edit_message(embed=self.embed,
+                               view=DraftAddView(self.identity, self.embed))
 
 
 class DraftFooterModal(discord.ui.Modal):
@@ -181,8 +232,7 @@ class DraftFooterModal(discord.ui.Modal):
         super().__init__(title='Draft')
         self.identity = identity
         self.embed = embed
-        self.add_item(InTxt(style=discord.InputTextStyle.long,
-                            label='Footer Text', max_length=2048,
+        self.add_item(InTxt(label="Footer Text", max_length=2048,
                             required=False, value=embed.footer))
 
     async def callback(self, interaction):

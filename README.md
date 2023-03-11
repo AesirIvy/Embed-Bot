@@ -1,6 +1,7 @@
 # Embed Bot
 It's a discord bot for sending your post under the form of embed.
-You can also test the bot by inviting it: [https://discord.com/api/oauth2/authorize?client_id=1076953045935587348&permissions=8&scope=bot%20applications.commands](link)
+
+You can also test the bot by inviting it: [link](https://discord.com/api/oauth2/authorize?client_id=1076953045935587348&permissions=8&scope=bot%20applications.commands)
 
 ## Usage
 1. Install pycord with `pip install py-cord`

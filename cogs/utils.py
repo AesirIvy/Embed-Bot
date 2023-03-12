@@ -17,7 +17,7 @@ class Utils(commands.Cog):
         await ctx.respond("Deleting...", ephemeral=True, delete_after=3)
         if ctx.channel.type == discord.ChannelType.private:
             async for msg in ctx.channel.history(limit=limit):
-                if msg.author == self.bot:
+                if msg.author == self.bot.user:
                     await msg.delete()
         else:
             await ctx.channel.purge(limit=limit)

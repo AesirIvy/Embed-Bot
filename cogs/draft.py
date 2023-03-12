@@ -40,7 +40,8 @@ class Draft(commands.Cog):
                 dct = json.loads(data.read())
                 folios.append(
                     pages.Page(
-                        content=f"<t:{i[0]}:F>\ndraft code: `{hex(i[0])[2:]}`",
+                        content=f"<t:{i[0]}:F>\n"
+                        + f"draft code: `{hex(i[0]-1672527600)[2:]}`",
                         embeds=[discord.Embed.from_dict(dct)]
                         )
                     )
@@ -152,8 +153,7 @@ class DraftView(discord.ui.View):
     @discord.ui.button(label='Add', style=discord.ButtonStyle.grey)
     async def add_callback(self, button, interaction):
         res = interaction.response
-        await res.edit_message(embed=self.embed,
-                               view=DraftAddView(self.identity, self.embed))
+        await res.edit_message(view=DraftAddView(self.identity, self.embed))
 
 
 class DraftAddView(discord.ui.View):
@@ -168,6 +168,11 @@ class DraftAddView(discord.ui.View):
         res = interaction.response
         await res.send_modal(DraftAddFieldModal(self.identity, self.embed))
 
+    @discord.ui.button(label="Edit Field", style=discord.ButtonStyle.grey)
+    async def edit_field_callback(self, button, interaction):
+        res = interaction.response
+        await res.send_modal(DraftEditFieldModal(self.identity, self.embed))
+
     @discord.ui.button(label="Remove Field", style=discord.ButtonStyle.grey)
     async def remove_field_callback(self, button, interaction):
         res = interaction.response
@@ -177,6 +182,11 @@ class DraftAddView(discord.ui.View):
     async def footer_callback(self, button, interaction):
         res = interaction.response
         await res.send_modal(DraftFooterModal(self.identity, self.embed))
+
+    @discord.ui.button(label='Timestamp', style=discord.ButtonStyle.grey)
+    async def timestamp_callback(self, button, interaction):
+        res = interaction.response
+        await res.send_modal(DraftTimestampModal(self.identity, self.embed))
 
     @discord.ui.button(label='Back', style=discord.ButtonStyle.grey)
     async def back_callback(self, button, interaction):
@@ -204,6 +214,35 @@ class DraftAddFieldModal(discord.ui.Modal):
                                view=DraftAddView(self.identity, self.embed))
 
 
+class DraftEditFieldModal(discord.ui.Modal):
+
+    def __init__(self, identity, embed):
+        super().__init__(title='Draft')
+        self.identity = identity
+        self.embed = embed
+        self.add_item(InTxt(label="Field Position",
+                            placeholder="Between 1 and 25",
+                            max_length=2, required=True))
+        self.add_item(InTxt(label="Field Title", max_length=256,
+                            required=False))
+        self.add_item(InTxt(style=discord.InputTextStyle.long,
+                            label="Field Description", max_length=1024,
+                            required=False))
+
+    async def callback(self, interaction):
+        res = interaction.response
+        try:
+            self.embed.set_field_at(int(self.children[0].value),
+                                    name=self.children[1].value,
+                                    value=self.children[2].value, inline=False)
+        except (IndexError, ValueError):
+            await res.send_message("invalid field position", ephemeral=True,
+                                   delete_after=5)
+            return
+        await res.edit_message(embed=self.embed,
+                               view=DraftAddView(self.identity, self.embed))
+
+
 class DraftRemoveFieldModal(discord.ui.Modal):
 
     def __init__(self, identity, embed):
@@ -211,7 +250,7 @@ class DraftRemoveFieldModal(discord.ui.Modal):
         self.identity = identity
         self.embed = embed
         self.add_item(InTxt(label="Field Position",
-                            placeholder="Between 1 and 25", required=True))
+                            placeholder="Between 1 and 25", max_length=2))
 
     async def callback(self, interaction):
         res = interaction.response
@@ -237,6 +276,22 @@ class DraftFooterModal(discord.ui.Modal):
 
     async def callback(self, interaction):
         self.embed.set_footer(text=self.children[0].value)
+        res = interaction.response
+        await res.edit_message(embed=self.embed,
+                               view=DraftAddView(self.identity, self.embed))
+
+
+class DraftTimestampModal(discord.ui.Modal):
+
+    def __init__(self, identity, embed):
+        super().__init__(title='Draft')
+        self.identity = identity
+        self.embed = embed
+        self.add_item(InTxt(label="Timestamp"))
+
+    async def callback(self, interaction):
+        ts = int(self.children[0].value)
+        self.embed.timestamp = datetime.fromtimestamp(ts)
         res = interaction.response
         await res.edit_message(embed=self.embed,
                                view=DraftAddView(self.identity, self.embed))

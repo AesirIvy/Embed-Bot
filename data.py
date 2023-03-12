@@ -11,7 +11,7 @@ class Data:
         self.cur.execute("CREATE TABLE IF NOT EXISTS file(id, ts)")
 
     def delete_file(self, identity, timestamp):
-        timestamp = int(timestamp, 16)
+        timestamp = int(timestamp, 16) + 1672527600
         Path(f'data/{identity}/{timestamp}.json').unlink(missing_ok=True)
         self.cur.execute(f"""DELETE FROM file
                          WHERE ts == {timestamp} AND id == {identity}""")

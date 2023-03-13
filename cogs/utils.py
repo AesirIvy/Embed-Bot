@@ -13,7 +13,7 @@ class Utils(commands.Cog):
 
     @utils.command(description="Delete 100 messages, if not limit is provided.")
     @discord.default_permissions(manage_messages=True)
-    async def purge(self, ctx, limit=100):
+    async def purge(self, ctx, limit: int = 100):
         await ctx.respond("Deleting...", ephemeral=True, delete_after=3)
         if ctx.channel.type == discord.ChannelType.private:
             async for msg in ctx.channel.history(limit=limit):

@@ -18,7 +18,7 @@ class Draft(commands.Cog):
 
     @draft.command(description="Create a draft.")
     async def create(self, ctx):
-        await ctx.send_modal(DraftModal(ctx.author.id))
+        await ctx.send_modal(DraftModal(ctx.author))
 
     @draft.command(
         description="Delete the draft that correspond to the given code."
@@ -41,7 +41,7 @@ class Draft(commands.Cog):
                 folios.append(
                     pages.Page(
                         content=f"<t:{i[0]}:F>\n"
-                        + f"draft code: `{hex(i[0]-1672527600)[2:]}`",
+                        + f"draft code: `{hex(i[0])[2:]}`",
                         embeds=[discord.Embed.from_dict(dct)]
                         )
                     )
@@ -89,7 +89,7 @@ class Draft(commands.Cog):
 
 class DraftModal(discord.ui.Modal):
 
-    def __init__(self, identity, embed=discord.Embed(colour=0), orginal=True):
+    def __init__(self, author, embed=discord.Embed(colour=0), orginal=True):
         super().__init__(title='Draft')
         if embed.colour.value == 0:
             self.add_item(InTxt(label='Colour', placeholder="Hex color codes",
@@ -102,7 +102,7 @@ class DraftModal(discord.ui.Modal):
         self.add_item(InTxt(style=discord.InputTextStyle.long,
                             label='Description', max_length=2048,
                             required=False, value=embed.description))
-        self.identity = identity
+        self.author = author
         self.embed = embed
         self.orginal = orginal
 
@@ -117,37 +117,37 @@ class DraftModal(discord.ui.Modal):
         if self.orginal:
             await res.send_message(
                 f"will be disabled <t:{int(datetime.now().timestamp())+900}:R>",
-                embed=self.embed, view=DraftView(self.identity, self.embed)
+                embed=self.embed, view=DraftView(self.author, self.embed)
                 )
         else:
             await res.edit_message(
                 content="will be disabled "
                 + f"<t:{int(datetime.now().timestamp())+900}:R>",
-                embed=self.embed, view=DraftView(self.identity, self.embed)
+                embed=self.embed, view=DraftView(self.author, self.embed)
                 )
 
 
 class DraftView(discord.ui.View):
 
-    def __init__(self, identity, embed):
+    def __init__(self, author, embed):
         super().__init__(timeout=900)
         self.data = Data()
-        self.identity = identity
+        self.author = author
         self.embed = embed
 
     async def on_timeout(self):
         self.clear_items()
-        await self.message.edit('', view=self)
+        await self.message.edit(content='', view=self)
 
     @discord.ui.button(label='Modify', style=discord.ButtonStyle.blurple)
     async def modify_callback(self, button, interaction):
         res = interaction.response
-        await res.send_modal(DraftModal(self.identity, self.embed, False))
+        await res.send_modal(DraftModal(self.author, self.embed, False))
 
     @discord.ui.button(label='Save', style=discord.ButtonStyle.green)
     async def save_callback(self, button, interaction):
         self.clear_items()
-        self.data.insert_file(self.identity, int(datetime.now().timestamp()),
+        self.data.insert_file(self.author.id, int(datetime.now().timestamp()),
                               self.embed.to_dict())
         if type(self.embed.footer) == str:
             self.embed.set_footer(text=f"{self.embed.footer} | saved")
@@ -166,41 +166,60 @@ class DraftView(discord.ui.View):
         await res.edit_message(
             content="will be disabled "
             + f"<t:{int(datetime.now().timestamp())+900}:R>",
-            view=DraftAddView(self.identity, self.embed)
+            view=DraftAddView(self.author, self.embed)
             )
 
 
 class DraftAddView(discord.ui.View):
 
-    def __init__(self, identity, embed):
+    def __init__(self, author, embed):
         super().__init__(timeout=900)
-        self.identity = identity
+        self.author = author
         self.embed = embed
 
     @discord.ui.button(label="Add Field", style=discord.ButtonStyle.grey)
     async def add_field_callback(self, button, interaction):
         res = interaction.response
-        await res.send_modal(DraftAddFieldModal(self.identity, self.embed))
+        await res.send_modal(DraftAddFieldModal(self.author, self.embed))
 
     @discord.ui.button(label="Edit Field", style=discord.ButtonStyle.grey)
     async def edit_field_callback(self, button, interaction):
         res = interaction.response
-        await res.send_modal(DraftEditFieldModal(self.identity, self.embed))
+        await res.send_modal(DraftEditFieldModal(self.author, self.embed))
 
     @discord.ui.button(label="Remove Field", style=discord.ButtonStyle.grey)
     async def remove_field_callback(self, button, interaction):
         res = interaction.response
-        await res.send_modal(DraftRemoveFieldModal(self.identity, self.embed))
+        await res.send_modal(DraftRemoveFieldModal(self.author, self.embed))
+
+    @discord.ui.button(label='Author', style=discord.ButtonStyle.grey)
+    async def author_callback(self, button, interaction):
+        res = interaction.response
+        if self.embed.author.name == discord.Embed.Empty:
+            self.embed.set_author(name=self.author.name, icon_url=self.author.avatar.url)
+        else:
+            self.embed.remove_author()
+        await res.edit_message(embed=self.embed)
+
+    @discord.ui.button(label='Thumbnail', style=discord.ButtonStyle.grey)
+    async def thumbnail_callback(self, button, interaction):
+        res = interaction.response
+        await res.send_modal(DraftThumbnailModal(self.author, self.embed))
+
+    @discord.ui.button(label='Image', style=discord.ButtonStyle.grey)
+    async def image_callback(self, button, interaction):
+        res = interaction.response
+        await res.send_modal(DraftImageModal(self.author, self.embed))
 
     @discord.ui.button(label='Footer', style=discord.ButtonStyle.grey)
     async def footer_callback(self, button, interaction):
         res = interaction.response
-        await res.send_modal(DraftFooterModal(self.identity, self.embed))
+        await res.send_modal(DraftFooterModal(self.author, self.embed))
 
     @discord.ui.button(label='Timestamp', style=discord.ButtonStyle.grey)
     async def timestamp_callback(self, button, interaction):
         res = interaction.response
-        await res.send_modal(DraftTimestampModal(self.identity, self.embed))
+        await res.send_modal(DraftTimestampModal(self.author, self.embed))
 
     @discord.ui.button(label='Back', style=discord.ButtonStyle.grey)
     async def back_callback(self, button, interaction):
@@ -208,15 +227,15 @@ class DraftAddView(discord.ui.View):
         await res.edit_message(
             content="will be disabled "
             + f"<t:{int(datetime.now().timestamp())+900}:R>",
-            view=DraftView(self.identity, self.embed)
+            view=DraftView(self.author, self.embed)
             )
 
 
 class DraftAddFieldModal(discord.ui.Modal):
 
-    def __init__(self, identity, embed):
+    def __init__(self, author, embed):
         super().__init__(title='Draft')
-        self.identity = identity
+        self.author = author
         self.embed = embed
         self.add_item(InTxt(label="Field Title", max_length=256,
                             required=False))
@@ -231,15 +250,15 @@ class DraftAddFieldModal(discord.ui.Modal):
         await res.edit_message(
             content="will be disabled "
             + f"<t:{int(datetime.now().timestamp())+900}:R>",
-            embed=self.embed, view=DraftAddView(self.identity, self.embed)
+            embed=self.embed, view=DraftAddView(self.author, self.embed)
             )
 
 
 class DraftEditFieldModal(discord.ui.Modal):
 
-    def __init__(self, identity, embed):
+    def __init__(self, author, embed):
         super().__init__(title='Draft')
-        self.identity = identity
+        self.author = author
         self.embed = embed
         self.add_item(InTxt(label="Field Position",
                             placeholder="Between 1 and 25",
@@ -263,15 +282,15 @@ class DraftEditFieldModal(discord.ui.Modal):
         await res.edit_message(
             content="will be disabled "
             + f"<t:{int(datetime.now().timestamp())+900}:R>",
-            embed=self.embed, view=DraftAddView(self.identity, self.embed)
+            embed=self.embed, view=DraftAddView(self.author, self.embed)
             )
 
 
 class DraftRemoveFieldModal(discord.ui.Modal):
 
-    def __init__(self, identity, embed):
+    def __init__(self, author, embed):
         super().__init__(title='Draft')
-        self.identity = identity
+        self.author = author
         self.embed = embed
         self.add_item(InTxt(label="Field Position",
                             placeholder="Between 1 and 25", max_length=2))
@@ -288,15 +307,57 @@ class DraftRemoveFieldModal(discord.ui.Modal):
         await res.edit_message(
             content="will be disabled "
             + f"<t:{int(datetime.now().timestamp())+900}:R>",
-            embed=self.embed, view=DraftAddView(self.identity, self.embed)
+            embed=self.embed, view=DraftAddView(self.author, self.embed)
+            )
+
+
+class DraftThumbnailModal(discord.ui.Modal):
+
+    def __init__(self, author, embed):
+        super().__init__(title='Draft')
+        self.author = author
+        self.embed = embed
+        self.add_item(InTxt(
+            label='Link',
+            placeholder="Leave it blank will remove the thumbnail.",
+            required=False)
+            )
+
+    async def callback(self, interaction):
+        self.embed.set_thumbnail(url=self.children[0].value)
+        res = interaction.response
+        await res.edit_message(
+            content="will be disabled "
+            + f"<t:{int(datetime.now().timestamp())+900}:R>",
+            embed=self.embed, view=DraftAddView(self.author, self.embed)
+            )
+
+
+class DraftImageModal(discord.ui.Modal):
+
+    def __init__(self, author, embed):
+        super().__init__(title='Draft')
+        self.author = author
+        self.embed = embed
+        self.add_item(InTxt(label="Link",
+                            placeholder="Leave it blank will remove the image.",
+                            required=False))
+
+    async def callback(self, interaction):
+        self.embed.set_image(url=self.children[0].value)
+        res = interaction.response
+        await res.edit_message(
+            content="will be disabled "
+            + f"<t:{int(datetime.now().timestamp())+900}:R>",
+            embed=self.embed, view=DraftAddView(self.author, self.embed)
             )
 
 
 class DraftFooterModal(discord.ui.Modal):
 
-    def __init__(self, identity, embed):
+    def __init__(self, author, embed):
         super().__init__(title='Draft')
-        self.identity = identity
+        self.author = author
         self.embed = embed
         self.add_item(InTxt(label="Footer Text", max_length=2048,
                             required=False, value=embed.footer))
@@ -307,15 +368,15 @@ class DraftFooterModal(discord.ui.Modal):
         await res.edit_message(
             content="will be disabled "
             + f"<t:{int(datetime.now().timestamp())+900}:R>",
-            embed=self.embed, view=DraftAddView(self.identity, self.embed)
+            embed=self.embed, view=DraftAddView(self.author, self.embed)
             )
 
 
 class DraftTimestampModal(discord.ui.Modal):
 
-    def __init__(self, identity, embed):
+    def __init__(self, author, embed):
         super().__init__(title='Draft')
-        self.identity = identity
+        self.author = author
         self.embed = embed
         self.add_item(InTxt(label="Timestamp"))
 
@@ -326,7 +387,7 @@ class DraftTimestampModal(discord.ui.Modal):
         await res.edit_message(
             content="will be disabled "
             + f"<t:{int(datetime.now().timestamp())+900}:R>",
-            embed=self.embed, view=DraftAddView(self.identity, self.embed)
+            embed=self.embed, view=DraftAddView(self.author, self.embed)
             )
 
 
